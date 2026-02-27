@@ -1,0 +1,10 @@
+[0;4mNEXT                       [0m[0;4m [0m[0;4m     LEFT[0m[0;4m [0m[0;4mLAST[0m[0;4m [0m[0;4mPASSED[0m[0;4m [0m[0;4mUNIT                         [0m[0;4m [0m[0;4mACTIVATES                      [0m
+Fri 2026-02-27 06:00:06 CST       11h -         - trading-report.timer          trading-report.service
+Fri 2026-02-27 10:00:00 CST       15h -         - trading-collect-morning.timer trading-collect-morning.service
+Fri 2026-02-27 12:00:09 CST       17h -         - trading-collect-midday.timer  trading-collect-midday.service
+Fri 2026-02-27 16:00:13 CST       21h -         - trading-collect-closing.timer trading-collect-closing.service
+Fri 2026-02-27 17:00:09 CST       22h -         - trading-analysis.timer        trading-analysis.service
+Sat 2026-02-28 08:00:18 CST 1 day 13h -         - trading-fundamentals.timer    trading-fundamentals.service
+
+[0;1;39m6 timers listed.[0m
+Pass --all to see loaded but inactive timers, too.
