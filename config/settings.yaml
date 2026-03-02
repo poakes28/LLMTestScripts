@@ -201,6 +201,9 @@ backtest:
   risk_free_rate: 0.05           # 5% risk-free rate
   initial_capital: 100000
   min_trade_interval_days: 1     # Minimum days between trades
+  balanced:
+    fundamental_weight: 0.50
+    technical_weight: 0.50
 
 # ----------------------------------------------------------------------------
 # Technical Analysis Defaults

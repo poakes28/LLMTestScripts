@@ -2,6 +2,10 @@
 Backtest endpoints.
 - /backtest/strategy: wraps existing BacktestEngine.run_backtest() (unchanged)
 - /backtest/screen: uses new run_screen_backtest() added in Phase 3
+- /backtest/fundamental: pure fundamental analysis backtest
+- /backtest/technical: pure technical momentum backtest
+- /backtest/balanced: balanced hybrid approach
+- /backtest/compare: compare all three methodologies
 """
 from typing import Dict
 from uuid import uuid4
@@ -144,3 +148,191 @@ async def get_saved_backtest_results(fund_name: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ------------------------------------------------------------------
+# New Backtesting Endpoints
+# ------------------------------------------------------------------
+
+class FundamentalBacktestRequest(BaseModel):
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    tickers: Optional[List[str]] = None
+    initial_capital: Optional[float] = None
+
+
+class TechnicalBacktestRequest(BaseModel):
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    tickers: Optional[List[str]] = None
+    initial_capital: Optional[float] = None
+
+
+class BalancedBacktestRequest(BaseModel):
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    tickers: Optional[List[str]] = None
+    initial_capital: Optional[float] = None
+
+
+def _run_fundamental_backtest(job_id: str, request: FundamentalBacktestRequest):
+    try:
+        from src.backtest.engine import BacktestEngine
+        engine = BacktestEngine()
+        result = engine.run_fundamental_backtest(
+            start_date=request.start_date,
+            end_date=request.end_date,
+            tickers=request.tickers,
+            initial_capital=request.initial_capital,
+        )
+        _jobs[job_id]["status"] = "complete"
+        _jobs[job_id]["result"] = _serialize_backtest_result(result)
+    except Exception as e:
+        _jobs[job_id]["status"] = "failed"
+        _jobs[job_id]["error"] = str(e)
+
+
+def _run_technical_backtest(job_id: str, request: TechnicalBacktestRequest):
+    try:
+        from src.backtest.engine import BacktestEngine
+        engine = BacktestEngine()
+        result = engine.run_technical_backtest(
+            start_date=request.start_date,
+            end_date=request.end_date,
+            tickers=request.tickers,
+            initial_capital=request.initial_capital,
+        )
+        _jobs[job_id]["status"] = "complete"
+        _jobs[job_id]["result"] = _serialize_backtest_result(result)
+    except Exception as e:
+        _jobs[job_id]["status"] = "failed"
+        _jobs[job_id]["error"] = str(e)
+
+
+def _run_balanced_backtest(job_id: str, request: BalancedBacktestRequest):
+    try:
+        from src.backtest.engine import BacktestEngine
+        engine = BacktestEngine()
+        result = engine.run_balanced_backtest(
+            start_date=request.start_date,
+            end_date=request.end_date,
+            tickers=request.tickers,
+            initial_capital=request.initial_capital,
+        )
+        _jobs[job_id]["status"] = "complete"
+        _jobs[job_id]["result"] = _serialize_backtest_result(result)
+    except Exception as e:
+        _jobs[job_id]["status"] = "failed"
+        _jobs[job_id]["error"] = str(e)
+
+
+@router.post("/backtest/fundamental")
+async def run_fundamental_backtest(request: FundamentalBacktestRequest, background_tasks: BackgroundTasks):
+    """
+    Run a pure fundamental analysis backtest.
+    Polls via GET /api/backtest/status/{job_id}.
+    """
+    job_id = str(uuid4())
+    _jobs[job_id] = {"status": "running", "result": None, "error": None}
+    background_tasks.add_task(_run_fundamental_backtest, job_id, request)
+    return {"job_id": job_id, "status": "running", "message": "Fundamental backtest started"}
+
+
+@router.post("/backtest/technical")
+async def run_technical_backtest(request: TechnicalBacktestRequest, background_tasks: BackgroundTasks):
+    """
+    Run a pure technical momentum backtest.
+    Polls via GET /api/backtest/status/{job_id}.
+    """
+    job_id = str(uuid4())
+    _jobs[job_id] = {"status": "running", "result": None, "error": None}
+    background_tasks.add_task(_run_technical_backtest, job_id, request)
+    return {"job_id": job_id, "status": "running", "message": "Technical backtest started"}
+
+
+@router.post("/backtest/balanced")
+async def run_balanced_backtest(request: BalancedBacktestRequest, background_tasks: BackgroundTasks):
+    """
+    Run a balanced hybrid backtest using both fundamental and technical analysis.
+    Polls via GET /api/backtest/status/{job_id}.
+    """
+    job_id = str(uuid4())
+    _jobs[job_id] = {"status": "running", "result": None, "error": None}
+    background_tasks.add_task(_run_balanced_backtest, job_id, request)
+    return {"job_id": job_id, "status": "running", "message": "Balanced backtest started"}
+
+
+@router.get("/backtest/compare")
+async def compare_backtest_methods(
+    start_date: str = "2023-01-01",
+    end_date: str = "2025-01-01",
+    tickers: Optional[str] = None,
+    initial_capital: float = 100000.0
+):
+    """
+    Compare performance of all three backtesting methodologies on the same date range.
+    Returns unified side-by-side performance table.
+    """
+    try:
+        from src.backtest.engine import BacktestEngine
+        engine = BacktestEngine()
+
+        # Parse tickers if provided
+        if tickers:
+            ticker_list = [t.strip() for t in tickers.split(",")]
+        else:
+            ticker_list = None
+
+        # Run all three backtests
+        fundamental_result = engine.run_fundamental_backtest(
+            start_date=start_date,
+            end_date=end_date,
+            tickers=ticker_list,
+            initial_capital=initial_capital
+        )
+
+        technical_result = engine.run_technical_backtest(
+            start_date=start_date,
+            end_date=end_date,
+            tickers=ticker_list,
+            initial_capital=initial_capital
+        )
+
+        balanced_result = engine.run_balanced_backtest(
+            start_date=start_date,
+            end_date=end_date,
+            tickers=ticker_list,
+            initial_capital=initial_capital
+        )
+
+        # Extract key metrics for comparison
+        def extract_metrics(result):
+            if "error" in result:
+                return {"error": result["error"]}
+
+            metrics = result.get("metrics", {})
+            return {
+                "total_return": metrics.get("total_return"),
+                "annual_return": metrics.get("annual_return"),
+                "sharpe_ratio": metrics.get("sharpe_ratio"),
+                "sortino_ratio": metrics.get("sortino_ratio"),
+                "max_drawdown": metrics.get("max_drawdown"),
+                "win_rate": metrics.get("win_rate"),
+                "profit_factor": metrics.get("profit_factor"),
+                "total_trades": metrics.get("total_trades"),
+            }
+
+        return {
+            "comparison": {
+                "fundamental": extract_metrics(fundamental_result),
+                "technical": extract_metrics(technical_result),
+                "balanced": extract_metrics(balanced_result),
+            },
+            "methodology": "comparison",
+            "start_date": start_date,
+            "end_date": end_date,
+            "initial_capital": initial_capital
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
