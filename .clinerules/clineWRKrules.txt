@@ -1,0 +1,37 @@
+Excel/VBA Development:
+- Use Option Explicit in all VBA modules
+- Avoid .Select and .Activate - use direct object references
+- Release object references (Set obj = Nothing) when done
+- Use early binding over late binding for better performance
+- Comment all formula generation with the expected result
+
+Python Automation:
+- Use pathlib for file paths, not string concatenation
+- Prefer pandas for data manipulation over manual loops
+- Use f-strings for string formatting
+- Include progress indicators for long-running processes
+- Write reusable functions, not monolithic scripts
+
+Data Processing:
+- Validate data types and ranges before processing
+- Handle missing/null values explicitly
+- Include data integrity checks (row counts, sum totals, etc.)
+- Log data transformations for audit trails
+
+Financial Calculations:
+- Use Decimal type for currency calculations, never float
+- Round explicitly, document rounding rules
+- Include validation against expected results
+- Comment all formula logic with business context
+
+File Operations:
+- Always use 'with' statements for file I/O
+- Include file existence checks before operations
+- Use meaningful file naming conventions (timestamps, version numbers)
+- Never overwrite source data without backup
+
+API/Data Integration:
+- Include retry logic with exponential backoff
+- Cache API responses when appropriate
+- Rate limit API calls to respect quotas
+- Log all API interactions for debugging

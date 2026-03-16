@@ -1,0 +1,40 @@
+name: Local TensorRT-LLM Config v2
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Qwen3 Coder 30B FP4
+    provider: openai
+    model: nvidia/Qwen3-14B-FP4
+    apiBase: http://localhost:8000/v1
+    apiKey: dummy
+    roles:
+      - chat
+      - edit
+      - apply
+    capabilities:
+      - tool_use
+    defaultCompletionOptions:
+      temperature: 0.7
+      maxTokens: 2048
+      contextLength: 32768
+    chatOptions:
+      baseSystemMessage: "You are an expert coding assistant. Provide clear, concise, and accurate code solutions."
+    requestOptions:
+      timeout: 120000      
+
+
+context:
+  - provider: file
+  - provider: code
+  - provider: diff
+  - provider: terminal
+  - provider: problems
+  - provider: folder
+  - provider: codebase
+
+rules:
+  - Always write clean, well-documented code
+  - Prefer TypeScript over JavaScript when applicable
+  - Follow best practices for the language being used
+  - Explain complex logic with inline comments

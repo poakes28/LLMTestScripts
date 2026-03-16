@@ -1,0 +1,267 @@
+# ============================================================================
+# Trading Analysis System - Master Configuration
+# ============================================================================
+
+system:
+  name: "Trading Analysis System"
+  version: "1.0.0"
+  timezone: "America/Chicago"
+  log_level: "INFO"
+  data_dir: "data"
+
+# ----------------------------------------------------------------------------
+# Schedule Configuration (Windows Task Scheduler compatible)
+# ----------------------------------------------------------------------------
+schedule:
+  price_pulls:
+    - name: "morning"
+      time: "10:00"          # ~1.5hrs after market open (CT)
+      description: "Morning price pull"
+    - name: "midday"
+      time: "12:00"
+      description: "Midday price pull"
+    - name: "closing"
+      time: "16:00"          # Near market close (CT)
+      description: "End of day price pull"
+  analysis:
+    time: "17:00"             # 5 PM CT
+    description: "Run full analysis engine"
+  email_report:
+    time: "06:00"             # 6 AM CT next morning
+    description: "Send morning email report"
+
+# ----------------------------------------------------------------------------
+# Watchlist
+# ----------------------------------------------------------------------------
+watchlist:
+  # Core holdings to always track
+  core:
+    - AAPL
+    - MSFT
+    - GOOGL
+    - AMZN
+    - NVDA
+    - META
+    - TSLA
+    - JPM
+    - V
+    - JNJ
+    - UNH
+    - PG
+    - HD
+    - MA
+    - XOM
+    - LLY
+    - AVGO
+    - COST
+    - PEP
+    - ABBV
+  # Sector ETFs for benchmarking
+  sector_etfs:
+    - SPY     # S&P 500
+    - QQQ     # Nasdaq 100
+    - XLF     # Financials
+    - XLK     # Technology
+    - XLV     # Healthcare
+    - XLE     # Energy
+    - XLI     # Industrials
+    - XLY     # Consumer Discretionary
+    - XLP     # Consumer Staples
+    - XLU     # Utilities
+    - XLRE    # Real Estate
+    - XLB     # Materials
+  # Additional stocks on radar
+  radar:
+    - AMD
+    - CRM
+    - NFLX
+    - DIS
+    - PYPL
+    - SQ
+    - SHOP
+    - SNOW
+    - PLTR
+    - COIN
+
+# ----------------------------------------------------------------------------
+# Sector Mappings
+# ----------------------------------------------------------------------------
+sector_map:
+  AAPL: "Technology"
+  MSFT: "Technology"
+  GOOGL: "Technology"
+  AMZN: "Consumer Discretionary"
+  NVDA: "Technology"
+  META: "Technology"
+  TSLA: "Consumer Discretionary"
+  JPM: "Financials"
+  V: "Financials"
+  JNJ: "Healthcare"
+  UNH: "Healthcare"
+  PG: "Consumer Staples"
+  HD: "Consumer Discretionary"
+  MA: "Financials"
+  XOM: "Energy"
+  LLY: "Healthcare"
+  AVGO: "Technology"
+  COST: "Consumer Staples"
+  PEP: "Consumer Staples"
+  ABBV: "Healthcare"
+  AMD: "Technology"
+  CRM: "Technology"
+  NFLX: "Communication Services"
+  DIS: "Communication Services"
+  PYPL: "Financials"
+  SQ: "Financials"
+  SHOP: "Technology"
+  SNOW: "Technology"
+  PLTR: "Technology"
+  COIN: "Financials"
+
+# ----------------------------------------------------------------------------
+# Strategy Fund Definitions
+# ----------------------------------------------------------------------------
+funds:
+  fundamental:
+    name: "Fundamental Value Fund"
+    description: "Value-oriented with fundamental emphasis"
+    weights:
+      fundamental: 0.70
+      technical: 0.30
+    risk_params:
+      stop_loss_pct: 0.10        # 10% stop-loss
+      trailing_stop_pct: 0.08    # 8% trailing stop
+      max_position_pct: 0.12     # 12% max single position
+      max_sector_pct: 0.35       # 35% max sector allocation
+      max_risk_per_trade: 0.02   # 2% portfolio risk per trade
+      use_kelly_criterion: false
+      kelly_fraction: 0.25       # Quarter-Kelly for safety
+    fundamental_criteria:
+      pe_ratio_max: 25
+      roe_min: 0.12              # 12% minimum ROE
+      debt_to_equity_max: 1.5
+      current_ratio_min: 1.2
+      revenue_growth_min: 0.05   # 5% minimum revenue growth
+      profit_margin_min: 0.10    # 10% minimum profit margin
+    starting_capital: 100000
+
+  technical:
+    name: "Technical Momentum Fund"
+    description: "Momentum-based with technical emphasis"
+    weights:
+      fundamental: 0.30
+      technical: 0.70
+    risk_params:
+      stop_loss_pct: 0.08        # 8% stop-loss (tighter)
+      trailing_stop_pct: 0.06    # 6% trailing stop
+      max_position_pct: 0.10     # 10% max single position
+      max_sector_pct: 0.30       # 30% max sector allocation
+      max_risk_per_trade: 0.02
+      use_kelly_criterion: true
+      kelly_fraction: 0.25
+    technical_params:
+      rsi_oversold: 30
+      rsi_overbought: 70
+      macd_signal_period: 9
+      sma_short: 20
+      sma_long: 50
+      sma_trend: 200
+      volume_avg_period: 20
+      atr_period: 14
+      bollinger_period: 20
+      bollinger_std: 2.0
+    starting_capital: 100000
+
+  balanced:
+    name: "Balanced Hybrid Fund"
+    description: "Equal weight fundamental and technical"
+    weights:
+      fundamental: 0.50
+      technical: 0.50
+    risk_params:
+      stop_loss_pct: 0.12        # 12% stop-loss (widest)
+      trailing_stop_pct: 0.10    # 10% trailing stop
+      max_position_pct: 0.15     # 15% max single position
+      max_sector_pct: 0.40       # 40% max sector allocation
+      max_risk_per_trade: 0.02
+      use_kelly_criterion: false
+      kelly_fraction: 0.25
+    starting_capital: 100000
+
+# ----------------------------------------------------------------------------
+# Backtesting Configuration
+# ----------------------------------------------------------------------------
+backtest:
+  default_start_date: "2023-01-01"
+  default_end_date: "2025-01-01"
+  slippage_pct: 0.001            # 0.1% slippage
+  commission_per_trade: 0.00     # $0 commissions (Schwab)
+  commission_pct: 0.0001         # 0.01% for modeling
+  benchmark: "SPY"
+  risk_free_rate: 0.05           # 5% risk-free rate
+  initial_capital: 100000
+  min_trade_interval_days: 1     # Minimum days between trades
+
+# ----------------------------------------------------------------------------
+# Technical Analysis Defaults
+# ----------------------------------------------------------------------------
+technical_defaults:
+  rsi_period: 14
+  rsi_oversold: 30
+  rsi_overbought: 70
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  sma_short: 20
+  sma_long: 50
+  sma_trend: 200
+  ema_short: 12
+  ema_long: 26
+  volume_avg_period: 20
+  atr_period: 14
+  bollinger_period: 20
+  bollinger_std: 2.0
+  support_resistance_window: 20
+  support_resistance_touches: 2
+
+# ----------------------------------------------------------------------------
+# Fundamental Analysis Defaults
+# ----------------------------------------------------------------------------
+fundamental_defaults:
+  pe_ratio_max: 25
+  peg_ratio_max: 2.0
+  roe_min: 0.12
+  roa_min: 0.05
+  debt_to_equity_max: 1.5
+  current_ratio_min: 1.2
+  quick_ratio_min: 0.8
+  revenue_growth_min: 0.05
+  earnings_growth_min: 0.05
+  profit_margin_min: 0.10
+  free_cash_flow_yield_min: 0.03
+  dividend_yield_min: 0.0        # 0 = no requirement
+
+# ----------------------------------------------------------------------------
+# Data Collection Settings
+# ----------------------------------------------------------------------------
+data_collection:
+  price_history_days: 365        # 1 year of daily data
+  intraday_interval: "1d"        # Daily candles
+  max_retries: 3
+  retry_delay_seconds: 5
+  batch_size: 10                 # Symbols per yfinance batch
+
+# ----------------------------------------------------------------------------
+# Email Configuration
+# ----------------------------------------------------------------------------
+email:
+  enabled: false
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  use_tls: true
+  sender_email: ""               # Set in credentials.yaml
+  sender_password: ""            # Set in credentials.yaml
+  recipients:
+    - ""                         # Set in credentials.yaml
+  subject_prefix: "[Trading System]"
+  max_recommendations: 10        # Top N recommendations per fund
