@@ -45,12 +45,18 @@ class ReportGenerator:
     # ------------------------------------------------------------------
     # Main Report
     # ------------------------------------------------------------------
-    def generate_report(self) -> str:
+    def generate_report(self, llm_analyses: Optional[Dict[str, Dict]] = None) -> str:
         """
         Generate the full morning email report as HTML.
+
+        Args:
+            llm_analyses: Optional dict of {ticker: llm_analysis_dict} from PositionAnalyzer.
+                          If None or empty, LLM section is omitted from all fund sections.
+
         Returns HTML string ready for sending.
         """
         logger.info("Generating email report...")
+        llm_analyses = llm_analyses or {}
 
         # Gather data
         portfolio_mgr = PaperPortfolioManager()
@@ -58,7 +64,9 @@ class ReportGenerator:
 
         fund_sections = []
         for fund_name in self.config.get("funds", {}):
-            section = self._generate_fund_section(fund_name, portfolio_mgr)
+            section = self._generate_fund_section(
+                fund_name, portfolio_mgr, llm_analyses
+            )
             fund_sections.append(section)
 
         # Build report
@@ -68,7 +76,12 @@ class ReportGenerator:
         logger.info("Report generated successfully")
         return html
 
-    def _generate_fund_section(self, fund_name: str, portfolio_mgr: PaperPortfolioManager) -> Dict:
+    def _generate_fund_section(
+        self,
+        fund_name: str,
+        portfolio_mgr: PaperPortfolioManager,
+        llm_analyses: Dict[str, Dict],
+    ) -> Dict:
         """Generate data for one fund's report section."""
         fund_cfg = self.config["funds"][fund_name]
         portfolio = portfolio_mgr.get_portfolio(fund_name)
@@ -83,6 +96,10 @@ class ReportGenerator:
         equity_chart = self._generate_equity_chart(fund_name)
         allocation_chart = self._generate_allocation_chart(positions, fund_cfg["name"])
 
+        # Filter LLM analyses to tickers held in this fund
+        position_tickers = set(positions["ticker"].tolist()) if not positions.empty else set()
+        fund_llm = {t: a for t, a in llm_analyses.items() if t in position_tickers}
+
         return {
             "fund_name": fund_cfg["name"],
             "fund_key": fund_name,
@@ -92,6 +109,7 @@ class ReportGenerator:
             "top_sells": top_sells,
             "equity_chart": equity_chart,
             "allocation_chart": allocation_chart,
+            "llm_analyses": fund_llm,
         }
 
     # ------------------------------------------------------------------
@@ -258,6 +276,11 @@ class ReportGenerator:
         # Positions table
         positions_html = self._render_positions_table(section["positions"])
 
+        # LLM analysis block (empty string if no analyses for this fund)
+        llm_html = self._build_llm_section(
+            section["positions"], section.get("llm_analyses", {})
+        )
+
         return f"""
 <div style="margin:30px 0;border:1px solid #333;border-radius:10px;overflow:hidden;">
     <!-- Fund Header -->
@@ -283,6 +306,8 @@ class ReportGenerator:
         <h3 style="color:#00d4ff;font-size:14px;margin:0 0 8px;">Current Positions</h3>
         {positions_html}
     </div>
+
+    {llm_html}
 
     <!-- Buy Recommendations -->
     <div style="padding:0 20px 16px;">
@@ -367,6 +392,104 @@ class ReportGenerator:
             </tr>
             {rows}
         </table>"""
+
+    def _build_llm_section(
+        self, positions: List[Dict], llm_analyses: Dict[str, Dict]
+    ) -> str:
+        """
+        Render the AI Risk Analysis section for a fund.
+
+        Returns empty string if no LLM analyses are available,
+        so the report renders cleanly without an empty section.
+        """
+        if not llm_analyses:
+            return ""
+
+        # Only render cards for positions that have LLM analysis
+        tickers_with_analysis = [
+            p["ticker"] for p in positions
+            if p.get("ticker") in llm_analyses
+        ]
+        if not tickers_with_analysis:
+            return ""
+
+        risk_colors = {
+            "low":      "#00b300",
+            "medium":   "#e6b800",
+            "high":     "#ff6600",
+            "critical": "#cc0000",
+            "unknown":  "#666666",
+        }
+
+        cards_html = ""
+        for ticker in tickers_with_analysis:
+            a = llm_analyses[ticker]
+            risk_level = a.get("risk_level", "unknown")
+            risk_color = risk_colors.get(risk_level, "#666666")
+            conf_pct = int(a.get("signal_confidence", 0) * 100)
+
+            risk_factors_html = "".join(
+                f'<div style="color:#bbb;font-size:11px;margin:2px 0;">'
+                f'&bull; {factor}</div>'
+                for factor in a.get("risk_factors", [])
+            )
+
+            support = a.get("key_levels", {}).get("support")
+            resistance = a.get("key_levels", {}).get("resistance")
+            support_str = f"${support:.2f}" if support else "N/A"
+            resistance_str = f"${resistance:.2f}" if resistance else "N/A"
+
+            cards_html += f"""
+            <div style="display:flex;border:1px solid #2a2a4a;border-radius:8px;
+                        margin:6px 0;overflow:hidden;background:#111128;">
+                <!-- Col 1: Ticker + levels -->
+                <div style="padding:12px 14px;min-width:130px;border-right:1px solid #2a2a4a;">
+                    <div style="color:white;font-weight:bold;font-size:14px;">{ticker}</div>
+                    <div style="color:#888;font-size:10px;margin-top:6px;">Support</div>
+                    <div style="color:#4ade80;font-size:12px;">{support_str}</div>
+                    <div style="color:#888;font-size:10px;margin-top:4px;">Resistance</div>
+                    <div style="color:#ff6b6b;font-size:12px;">{resistance_str}</div>
+                </div>
+                <!-- Col 2: Risk level + factors -->
+                <div style="padding:12px 14px;flex:1;border-right:1px solid #2a2a4a;">
+                    <div style="color:{risk_color};font-weight:bold;font-size:12px;
+                                text-transform:uppercase;">
+                        RISK: {risk_level.upper()}
+                    </div>
+                    <div style="margin-top:6px;">{risk_factors_html}</div>
+                </div>
+                <!-- Col 3: Signal + recommendation -->
+                <div style="padding:12px 14px;flex:2;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="color:#00d4ff;font-weight:bold;font-size:12px;">
+                            {a.get("signal", "HOLD")}
+                        </span>
+                        <div style="background:#333;border-radius:3px;height:10px;width:60px;">
+                            <div style="background:#00d4ff;border-radius:3px;height:10px;
+                                        width:{conf_pct}%;"></div>
+                        </div>
+                        <span style="color:#888;font-size:10px;">{conf_pct}%</span>
+                    </div>
+                    <div style="color:#ccc;font-size:11px;margin-top:6px;line-height:1.4;">
+                        {a.get("recommendation", "")}
+                    </div>
+                    <div style="color:#666;font-size:10px;margin-top:4px;font-style:italic;">
+                        {a.get("sentiment", "")}
+                    </div>
+                </div>
+            </div>"""
+
+        return f"""
+    <!-- AI Risk Analysis -->
+    <div style="padding:0 20px 16px;">
+        <h3 style="color:#a78bfa;font-size:14px;margin:0 0 8px;">
+            AI Risk Analysis
+            <span style="color:#555;font-size:10px;font-weight:normal;margin-left:8px;">
+                Nemotron Nano 30B &bull; NVFP4
+            </span>
+        </h3>
+        {cards_html}
+    </div>"""
 
     # ------------------------------------------------------------------
     # Save Report
