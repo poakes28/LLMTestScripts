@@ -79,7 +79,7 @@ class PositionAnalyzer:
 
         logger.info(
             f"LLM position analysis complete: {len(results)} positions "
-            f"({sum(1 for v in results.values() if v['risk_level'] != 'unknown')} successful)"
+            f"({sum(1 for v in results.values() if v.get('risk_level') != 'unknown')} successful)"
         )
         return results
 
@@ -94,6 +94,22 @@ class PositionAnalyzer:
     ) -> pd.DataFrame:
         """Merge positions with analysis data. Analysis fields default to 0/UNKNOWN."""
         df = positions_df.copy()
+
+        if "ticker" not in df.columns:
+            logger.error("positions_df missing 'ticker' column — cannot merge analysis data.")
+            # Fill defaults and return early without attempting merge
+            defaults = {
+                "signal": "UNKNOWN",
+                "confidence": 0.0,
+                "composite_score": 0.0,
+                "entry_price": 0.0,
+                "stop_loss": 0.0,
+                "target_price": 0.0,
+                "risk_reward_ratio": 0.0,
+            }
+            for col, default in defaults.items():
+                df[col] = default
+            return df
 
         if analysis_df is not None and not analysis_df.empty:
             analysis_cols = [
@@ -131,7 +147,7 @@ class PositionAnalyzer:
         prompt = build_user_prompt(ticker_data)
         last_error = None
 
-        for attempt in range(1, self.max_retries + 1):
+        for attempt in range(self.max_retries + 1):
             try:
                 content = self._call_api(prompt)
                 return self._parse_response(content, ticker)
@@ -142,7 +158,7 @@ class PositionAnalyzer:
                 )
 
         raise RuntimeError(
-            f"All {self.max_retries} attempts failed for {ticker}"
+            f"All {self.max_retries + 1} attempts failed for {ticker}"
         ) from last_error
 
     def _call_api(self, prompt: str) -> str:
@@ -179,13 +195,12 @@ class PositionAnalyzer:
         """
         content = content.strip()
 
-        # Strip markdown fences if present
-        if content.startswith("```"):
-            lines = content.splitlines()
-            content = "\n".join(
-                line for line in lines
-                if not line.strip().startswith("```")
-            ).strip()
+        # Extract the JSON object by finding the outermost braces.
+        # This handles: pure JSON, markdown-fenced JSON, and partial fences.
+        start = content.find("{")
+        end = content.rfind("}")
+        if start != -1 and end > start:
+            content = content[start:end + 1]
 
         try:
             parsed = json.loads(content)
