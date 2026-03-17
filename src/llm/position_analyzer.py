@@ -67,6 +67,10 @@ class PositionAnalyzer:
         # Merge positions with strategy analysis where available
         merged = self._merge_data(positions_df, analysis_df)
 
+        if "ticker" not in merged.columns:
+            logger.warning("positions_df has no 'ticker' column — skipping LLM analysis.")
+            return {}
+
         results = {}
         for _, row in merged.iterrows():
             ticker = row.get("ticker", "UNKNOWN")
@@ -154,7 +158,7 @@ class PositionAnalyzer:
             except Exception as e:
                 last_error = e
                 logger.warning(
-                    f"LLM attempt {attempt}/{self.max_retries} failed for {ticker}: {e}"
+                    f"LLM attempt {attempt + 1}/{self.max_retries + 1} failed for {ticker}: {e}"
                 )
 
         raise RuntimeError(

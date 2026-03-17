@@ -67,12 +67,17 @@ def main():
                 else:
                     positions_df = pd.DataFrame()
 
-                # Load latest strategy analysis (try each fund, use first non-empty)
-                analysis_df = None
+                # Load strategy analysis from all funds and merge (tickers overlap across funds)
+                all_analyses = []
                 for fund_name in settings.get("funds", {}):
-                    analysis_df = load_parquet("analysis", f"recommendations_{fund_name}")
-                    if analysis_df is not None and not analysis_df.empty:
-                        break
+                    df = load_parquet("analysis", f"recommendations_{fund_name}")
+                    if df is not None and not df.empty:
+                        all_analyses.append(df)
+                if all_analyses:
+                    analysis_df = pd.concat(all_analyses, ignore_index=True)
+                    analysis_df = analysis_df.drop_duplicates(subset=["ticker"])
+                else:
+                    analysis_df = None
 
                 analyzer = PositionAnalyzer(settings)
                 llm_analyses = analyzer.analyze_positions(positions_df, analysis_df)
