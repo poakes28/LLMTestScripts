@@ -1,0 +1,75 @@
+# Trading System — Cline Project Rules
+
+## This Project
+Local LLM-augmented trading analysis system. Three independent entry points:
+collect.py → analyze.py → report.py, connected via Parquet files in data/.
+The src/llm/ module has two components:
+- analyzer.py: batch screener analysis (Claude API or local Ollama/compatible)
+- position_analyzer.py: per-position Schwab P&L analysis (Nemotron at localhost:8000)
+
+## Tech Stack
+- Python 3.12, pandas, pandas-ta, yfinance, loguru, pyyaml, requests
+- Data storage: Parquet files via pyarrow — NO databases, NO SQLite, NO CSV
+- HTML generation: f-strings with inline CSS — NO Jinja2 (it's in requirements but unused)
+- Charts: matplotlib embedded as base64 PNG in HTML
+- Logging: loguru — NOT stdlib logging, NOT print statements
+- Config: config/settings.yaml + config/credentials.yaml — NEVER hardcode credentials
+
+## Project Layout
+```
+src/
+  collector/    — price_fetcher.py, schwab_client.py, paper_portfolio.py
+  analysis/     — technical.py, fundamental.py, risk_metrics.py, strategies.py
+  llm/          — analyzer.py (batch screener), position_analyzer.py (per-position P&L),
+                  prompts.py (Nemotron prompt templates)
+  reporting/    — report_generator.py (HTML + LLM section), email_sender.py (SMTP)
+  screener/     — screener.py, universe.py
+  utils.py      — load_config(), fmt_pct(), fmt_currency(), save/load_parquet()
+scripts/
+  collect.py    — entry: fetch prices + sync Schwab
+  analyze.py    — entry: run strategy analysis
+  report.py     — entry: generate + email report (calls PositionAnalyzer)
+config/
+  settings.yaml       — all config: funds, technical params, email, llm, llm_analysis
+  credentials.yaml    — Schwab keys, email creds, Anthropic key (user fills manually)
+data/                 — Parquet files, auto-created at runtime
+```
+
+## Data Conventions
+- All monetary values: float, 2 decimal places
+- P&L percentages: float as decimal (0.15 = 15%, NOT 15.0)
+- Ticker symbols: uppercase strings
+- Fund keys: "fundamental", "technical", "balanced" (match settings.yaml exactly)
+- Parquet column names are sacred — don't rename them
+
+## Error Handling Pattern
+Always wrap Schwab API and LLM API calls in try/except, log a warning, and continue.
+The report must always send even if LLM or Schwab fails. Never let external
+service failures crash the pipeline.
+
+## What NOT to Change
+- Parquet schema column names (everything downstream depends on exact names)
+- config/credentials.yaml structure (user fills this manually, don't reorder)
+- The three entry point script CLI argument interfaces
+- Email MIME structure in src/reporting/email_sender.py
+- src/llm/analyzer.py — the batch screener (separate concern from position_analyzer.py)
+
+## LLM Position Analysis (src/llm/position_analyzer.py)
+- One call per position, sequential
+- Reasoning disabled: always pass `"chat_template_kwargs": {"thinking": False}`
+- Temperature: 0.6 (from config, don't hardcode)
+- Responses parsed as JSON; fallback_analysis() used on parse failure
+- All LLM-sourced strings must be html.escape()'d before HTML interpolation
+
+## Testing / Verification
+```bash
+# Preview report (no email sent, opens in browser)
+cd ~/Desktop/LLMTestScripts
+/home/peter-oakes/venvs/trtllm/bin/python3.12 scripts/report.py --preview --open
+
+# Check LLM section in output
+grep -c "AI Risk Analysis" data/reports/report_*.html
+
+# Quick LLM endpoint test
+curl http://localhost:8000/v1/models | jq .
+```

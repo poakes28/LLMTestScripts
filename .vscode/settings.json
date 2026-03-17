@@ -1,0 +1,10 @@
+{
+  "cline.apiProvider": "openai",
+  "cline.openAiBaseUrl": "http://localhost:8000/v1",
+  "cline.openAiModelId": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4",
+  "cline.openAiApiKey": "trtllm",
+  "cline.openAiStreamingEnabled": true,
+  "cline.maxTokens": 8192,
+  "editor.formatOnSave": true,
+  "python.defaultInterpreterPath": "/home/peter-oakes/venvs/trtllm/bin/python3.12"
+}
