@@ -10,6 +10,7 @@ Creates HTML email reports with:
 """
 
 import base64
+import html
 import io
 from datetime import datetime, date, timedelta
 from typing import Optional, Dict, Any, List
@@ -426,18 +427,21 @@ class ReportGenerator:
             a = llm_analyses[ticker]
             risk_level = a.get("risk_level", "unknown")
             risk_color = risk_colors.get(risk_level, "#666666")
-            conf_pct = int(a.get("signal_confidence", 0) * 100)
+            conf_pct = max(0, min(100, int(a.get("signal_confidence", 0) * 100)))
+            safe_signal = html.escape(str(a.get("signal", "HOLD")))
+            safe_recommendation = html.escape(str(a.get("recommendation", "")))
+            safe_sentiment = html.escape(str(a.get("sentiment", "")))
 
             risk_factors_html = "".join(
                 f'<div style="color:#bbb;font-size:11px;margin:2px 0;">'
-                f'&bull; {factor}</div>'
+                f'&bull; {html.escape(str(factor))}</div>'
                 for factor in a.get("risk_factors", [])
             )
 
             support = a.get("key_levels", {}).get("support")
             resistance = a.get("key_levels", {}).get("resistance")
-            support_str = f"${support:.2f}" if support else "N/A"
-            resistance_str = f"${resistance:.2f}" if resistance else "N/A"
+            support_str = f"${support:.2f}" if support is not None else "N/A"
+            resistance_str = f"${resistance:.2f}" if resistance is not None else "N/A"
 
             cards_html += f"""
             <div style="display:flex;border:1px solid #2a2a4a;border-radius:8px;
@@ -462,7 +466,7 @@ class ReportGenerator:
                 <div style="padding:12px 14px;flex:2;">
                     <div style="display:flex;align-items:center;gap:8px;">
                         <span style="color:#00d4ff;font-weight:bold;font-size:12px;">
-                            {a.get("signal", "HOLD")}
+                            {safe_signal}
                         </span>
                         <div style="background:#333;border-radius:3px;height:10px;width:60px;">
                             <div style="background:#00d4ff;border-radius:3px;height:10px;
@@ -471,10 +475,10 @@ class ReportGenerator:
                         <span style="color:#888;font-size:10px;">{conf_pct}%</span>
                     </div>
                     <div style="color:#ccc;font-size:11px;margin-top:6px;line-height:1.4;">
-                        {a.get("recommendation", "")}
+                        {safe_recommendation}
                     </div>
                     <div style="color:#666;font-size:10px;margin-top:4px;font-style:italic;">
-                        {a.get("sentiment", "")}
+                        {safe_sentiment}
                     </div>
                 </div>
             </div>"""
