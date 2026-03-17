@@ -41,9 +41,49 @@ def main():
     logger.info("=" * 60)
 
     try:
+        from src.utils import load_config, load_parquet
+        from src.llm.position_analyzer import PositionAnalyzer
+        import pandas as pd
+
+        settings = load_config()
+
+        # Run LLM position analysis before building report
+        llm_analyses = {}
+        if settings.get("llm_analysis", {}).get("enabled", False):
+            try:
+                from src.collector.paper_portfolio import PaperPortfolioManager
+
+                portfolio_mgr = PaperPortfolioManager()
+                all_positions = []
+                for fund_name in settings.get("funds", {}):
+                    portfolio = portfolio_mgr.get_portfolio(fund_name)
+                    positions = portfolio.get_positions()
+                    if not positions.empty:
+                        all_positions.append(positions)
+
+                if all_positions:
+                    positions_df = pd.concat(all_positions, ignore_index=True)
+                    positions_df = positions_df.drop_duplicates(subset=["ticker"])
+                else:
+                    positions_df = pd.DataFrame()
+
+                # Load latest strategy analysis (try each fund, use first non-empty)
+                analysis_df = None
+                for fund_name in settings.get("funds", {}):
+                    analysis_df = load_parquet("analysis", f"recommendations_{fund_name}")
+                    if analysis_df is not None and not analysis_df.empty:
+                        break
+
+                analyzer = PositionAnalyzer(settings)
+                llm_analyses = analyzer.analyze_positions(positions_df, analysis_df)
+                logger.info(f"LLM analysis complete: {len(llm_analyses)} positions analyzed")
+
+            except Exception as e:
+                logger.warning(f"LLM analysis failed, continuing without it: {e}")
+
         # Generate report
         generator = ReportGenerator()
-        html = generator.generate_report()
+        html = generator.generate_report(llm_analyses=llm_analyses)
 
         # Save locally
         if args.output:
