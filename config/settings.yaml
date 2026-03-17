@@ -294,3 +294,14 @@ llm:
   max_stocks_per_request: 50
   max_tokens: 8192
   temperature: 0.3
+
+# ----------------------------------------------------------------------------
+# LLM Position Analysis Configuration (Nemotron local server)
+# ----------------------------------------------------------------------------
+llm_analysis:
+  enabled: true
+  base_url: "http://localhost:8000/v1"
+  model: "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-NVFP4"
+  temperature: 0.6
+  timeout_seconds: 30
+  max_retries: 2
